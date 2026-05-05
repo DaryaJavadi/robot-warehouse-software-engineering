@@ -12,15 +12,17 @@ from views.robot_detail import robot_detail_view
 from views.task_detail import task_detail_view
 from views.inventory import inventory_view
 from views.charging import charging_view
+from views.add_robot import add_robot_view
 
 
 # Routes that map to (active sidebar key, builder).
 ROUTES = {
-    "/dashboard": ("dashboard", dashboard_view),
-    "/robots":    ("robots",    robot_detail_view),
-    "/tasks":     ("tasks",     task_detail_view),
-    "/inventory": ("inventory", inventory_view),
-    "/charging":  ("charging",  charging_view),
+    "/dashboard":  ("dashboard",  dashboard_view),
+    "/robots":     ("robots",     robot_detail_view),
+    "/tasks":      ("tasks",      task_detail_view),
+    "/inventory":  ("inventory",  inventory_view),
+    "/charging":   ("charging",   charging_view),
+    "/add_robot":  ("add_robot",  add_robot_view),
 }
 
 

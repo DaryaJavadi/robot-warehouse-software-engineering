@@ -116,11 +116,12 @@ def _do_search(page: ft.Page, query: str) -> None:
 
 
 NAV_ITEMS = [
-    ("dashboard", "Dashboard", ft.Icons.GRID_VIEW_OUTLINED, "/dashboard"),
-    ("robots",    "Robots",    ft.Icons.SMART_TOY_OUTLINED, "/robots"),
-    ("tasks",     "Tasks",     ft.Icons.ASSIGNMENT_OUTLINED, "/tasks"),
-    ("inventory", "Inventory Zones", ft.Icons.INVENTORY_2_OUTLINED, "/inventory"),
-    ("charging",  "Charging",  ft.Icons.BOLT_OUTLINED, "/charging"),
+    ("dashboard", "Dashboard",       ft.Icons.GRID_VIEW_OUTLINED,    "/dashboard"),
+    ("robots",    "Robots",          ft.Icons.SMART_TOY_OUTLINED,    "/robots"),
+    ("tasks",     "Tasks",           ft.Icons.ASSIGNMENT_OUTLINED,   "/tasks"),
+    ("inventory", "Inventory Zones", ft.Icons.INVENTORY_2_OUTLINED,  "/inventory"),
+    ("charging",  "Charging",        ft.Icons.BOLT_OUTLINED,         "/charging"),
+    ("add_robot", "Add Robot",       ft.Icons.ADD_BOX_OUTLINED,      "/add_robot"),
 ]
 
 
@@ -353,12 +354,13 @@ def shell(page: ft.Page, active: str, body: ft.Control) -> ft.Control:
         bgcolor=Colors.SIDEBAR,
         controls=[ft.Container(width=260, expand=True,
                                content=_sidebar_content(active, page,
-                                                        on_select=lambda: page.close_drawer()))],
+                                                        on_select=lambda: (setattr(drawer, "open", False), page.update())))],
     )
     page.drawer = drawer
 
     def open_drawer():
-        page.show_drawer(drawer)
+        drawer.open = True
+        page.update()
 
     sidebar = ft.Container(
         width=240,

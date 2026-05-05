@@ -102,18 +102,17 @@ def _header(page: ft.Page, robot: dict) -> ft.Control:
                 padding=ft.Padding.symmetric(horizontal=14, vertical=12),
             ),
         ),
-        ft.ElevatedButton(
+        ft.FilledButton(
             content=ft.Row(spacing=6, tight=True, controls=[
                 ft.Icon(ft.Icons.STOP_CIRCLE_OUTLINED, size=16, color="#FFFFFF"),
                 ft.Text("Emergency Stop", size=13,
                         weight=ft.FontWeight.W_600, color="#FFFFFF"),
             ]),
-            bgcolor=Colors.DANGER, color="#FFFFFF",
+            bgcolor=Colors.DANGER,
             on_click=emergency_stop,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=10),
                 padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-                elevation=0,
             ),
         ),
     ])

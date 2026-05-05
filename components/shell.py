@@ -350,13 +350,23 @@ def shell(page: ft.Page, active: str, body: ft.Control) -> ft.Control:
     width = page.width or 1280
     is_narrow = width < 900
 
-    drawer = ft.NavigationDrawer(
-        bgcolor=Colors.SIDEBAR,
-        controls=[ft.Container(width=260, expand=True,
-                               content=_sidebar_content(active, page,
-                                                        on_select=lambda: (setattr(drawer, "open", False), page.update())))],
-    )
-    page.drawer = drawer
+    def close_drawer():
+        drawer.open = False
+        page.update()
+
+    # Reuse or create drawer
+    if not isinstance(page.drawer, ft.NavigationDrawer):
+        drawer = ft.NavigationDrawer(
+            bgcolor=Colors.SIDEBAR,
+            controls=[ft.Container(width=260, expand=True,
+                                   content=_sidebar_content(active, page,
+                                                            on_select=close_drawer))],
+        )
+        page.drawer = drawer
+    else:
+        # Update existing drawer content to reflect active state
+        drawer = page.drawer
+        drawer.controls[0].content = _sidebar_content(active, page, on_select=close_drawer)
 
     def open_drawer():
         drawer.open = True

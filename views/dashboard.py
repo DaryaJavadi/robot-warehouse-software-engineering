@@ -9,7 +9,7 @@ from components.cards import kpi_tile, panel, alert_card, status_badge, progress
 from components.charts import area_chart
 from components.dialogs import show_snack, form_dialog, confirm, info_dialog
 
-
+# left side:
 def _refresh(page: ft.Page) -> None:
     fn = (page.data or {}).get("refresh")
     if callable(fn):
@@ -27,7 +27,7 @@ def _open_task(page: ft.Page, task_id: str) -> None:
     show_snack(page, f"Opening {task_id}.", kind="info")
     page.go("/tasks")
 
-
+# DASHBOARD: 
 def _header(page: ft.Page) -> ft.Control:
     title = ft.Column(spacing=4, controls=[
         ft.Text("Fleet Command", size=28, weight=ft.FontWeight.BOLD, color=Colors.TEXT),
@@ -35,8 +35,9 @@ def _header(page: ft.Page) -> ft.Control:
                 size=13, color=Colors.TEXT_MUTED),
     ])
 
+    # Task History:
     def open_history(_):
-        all_tasks = db.list_tasks()
+        all_tasks = db.list_tasks() # -> returns a list of all tasks.
         finished = [t for t in all_tasks
                     if t["status"] in ("Completed", "Aborted")]
         finished.sort(key=lambda t: t["id"], reverse=True)
@@ -74,13 +75,15 @@ def _header(page: ft.Page) -> ft.Control:
             ])
         info_dialog(page, "Task History", body)
 
+
+    # Assign New Task:
     def open_new_task(_):
         robots = db.list_robots()
         robot_ids = ", ".join(r["id"] for r in robots[:5])
 
         def submit(values: dict):
             name = values.get("name", "").strip()
-            if not name:
+            if not name: # Validation:
                 show_snack(page, "Task name is required.", kind="warning")
                 return
             new_id = db.insert_task(
@@ -92,7 +95,7 @@ def _header(page: ft.Page) -> ft.Control:
                 robot_id=values.get("robot_id") or None,
                 description=values.get("description", "") or "",
             )
-            db.insert_alert("info", "TASK CREATED",
+            db.insert_alert("info", "TASK CREATED", # inserts an alert into the database.
                             f"{name} queued for dispatch.", new_id, "just now")
             show_snack(page, f"Created {new_id}.", kind="success")
             _refresh(page)
@@ -112,6 +115,7 @@ def _header(page: ft.Page) -> ft.Control:
                     submit_label="Create Task",
                     on_submit=submit)
 
+    # Logic Part:
     actions = ft.Row(
         spacing=10,
         controls=[
@@ -128,19 +132,17 @@ def _header(page: ft.Page) -> ft.Control:
                     padding=ft.Padding.symmetric(horizontal=14, vertical=12),
                 ),
             ),
-            ft.ElevatedButton(
+            ft.FilledButton(
                 content=ft.Row(spacing=6, tight=True, controls=[
                     ft.Icon(ft.Icons.ADD_CIRCLE_OUTLINE, size=16, color="#FFFFFF"),
                     ft.Text("Assign New Task", size=13, color="#FFFFFF",
                             weight=ft.FontWeight.W_600),
                 ]),
                 bgcolor=Colors.PRIMARY,
-                color="#FFFFFF",
                 on_click=open_new_task,
                 style=ft.ButtonStyle(
                     shape=ft.RoundedRectangleBorder(radius=10),
                     padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-                    elevation=0,
                 ),
             ),
         ],
@@ -183,6 +185,7 @@ def _kpis() -> ft.Control:
 
 
 def _robot_table(page: ft.Page) -> ft.Control:
+    # for example: testing robot RBT-904:
     robots = [r for r in db.list_robots() if r["id"] != "RBT-904"][:5]
 
     header = ft.Row(
@@ -240,6 +243,7 @@ def _robot_table(page: ft.Page) -> ft.Control:
         *body_rows,
     ])
 
+    # Three dots: -> BULK Menu:
     def recall_idle():
         n = db.recall_idle_robots()
         if n:

@@ -5,7 +5,7 @@ import flet as ft
 
 import db
 from theme import Colors
-from components.shell import shell
+from components.shell import shell # The shell wraps all pages except sign-in.
 from views.signin import signin_view
 from views.dashboard import dashboard_view
 from views.robot_detail import robot_detail_view
@@ -15,7 +15,6 @@ from views.charging import charging_view
 from views.add_robot import add_robot_view
 
 
-# Routes that map to (active sidebar key, builder).
 ROUTES = {
     "/dashboard":  ("dashboard",  dashboard_view),
     "/robots":     ("robots",     robot_detail_view),
@@ -27,13 +26,15 @@ ROUTES = {
 
 
 def main(page: ft.Page) -> None:
-    db.init()
+    db.init() # creates tables, checks schema, prepares DB.
 
     page.title = "FleetOps — Warehouse Robot Control"
     page.bgcolor = Colors.BG
     page.padding = 0
     page.spacing = 0
-    page.theme_mode = ft.ThemeMode.LIGHT
+    page.theme_mode = ft.ThemeMode.LIGHT # light mode.
+    
+    # UI part:
     page.theme = ft.Theme(
         color_scheme_seed=Colors.PRIMARY,
         font_family="Inter",
@@ -44,36 +45,38 @@ def main(page: ft.Page) -> None:
     page.window.width = 1280
     page.window.height = 880
 
-    # Page-level state bag (auth, refresh callback). Init as dict before use.
-    page.data = {"user": None}
+    #  signed-in user info, auth session, refresh callback. Init as dict before use.
+    page.data = {"user": None} # currently no user is logged in.
 
-    def render() -> None:
+    def render() -> None: # removing old UI before drawing new UI.
         page.controls.clear()
         page.overlay.clear()
-        # Drain any lingering dialogs from the stack
         try:
             while page.pop_dialog() is not None:
                 pass
         except Exception:
             pass
+
+        # gets current url/page:
         route = page.route or "/"
-        signed_in = bool((page.data or {}).get("user"))
-        # Auth gate: render sign-in for "/" OR any route while not signed in.
-        # Don't mutate page.route here — that would re-trigger render.
+        signed_in = bool((page.data or {}).get("user")) # checks whether user is logged in.
+
         if route in ("/", "") or not signed_in:
-            page.controls.append(signin_view(page))
+            page.controls.append(signin_view(page)) # stays in sign-in page.
         else:
             entry = ROUTES.get(route)
             if entry is None:
                 page.route = "/dashboard"
                 entry = ROUTES["/dashboard"]
-            active, builder = entry
-            page.controls.append(shell(page, active, builder(page)))
-        page.update()
+            active, builder = entry # active = "dashboard"
+                                    # builder = dashboard_view
+            page.controls.append(shell(page, active, builder(page))) # builds UI. 
+        page.update() # refreshes/redraws UI.
 
-    # Expose a global refresh handler the views can use to rebuild after DB writes
-    page.data["refresh"] = render
 
+    page.data["refresh"] = render # so any page can refresh the whole app.
+
+    # call render when route or size changes. like responsive. if window resized, it calls render.
     def on_route_change(_: ft.RouteChangeEvent) -> None:
         render()
 
@@ -89,4 +92,4 @@ def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
-    ft.run(main, assets_dir="assets")
+    ft.app(target=main, assets_dir="assets")

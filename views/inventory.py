@@ -151,18 +151,17 @@ def _header(page: ft.Page) -> ft.Control:
                 padding=ft.Padding.symmetric(horizontal=14, vertical=12),
             ),
         ),
-        ft.ElevatedButton(
+        ft.FilledButton(
             content=ft.Row(spacing=6, tight=True, controls=[
                 ft.Icon(ft.Icons.GRID_VIEW, size=16, color="#FFFFFF"),
                 ft.Text("Optimize Zones", size=13,
                         weight=ft.FontWeight.W_600, color="#FFFFFF"),
             ]),
-            bgcolor=Colors.PRIMARY, color="#FFFFFF",
+            bgcolor=Colors.PRIMARY,
             on_click=optimize,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=10),
                 padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-                elevation=0,
             ),
         ),
     ])

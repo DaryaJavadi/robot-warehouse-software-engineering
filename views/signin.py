@@ -11,7 +11,7 @@ from theme import Colors
 from components.dialogs import show_snack, form_dialog
 
 
-# Drop a PNG (or JPG) at this path to replace the canvas placeholder.
+# left side picture:
 ILLUSTRATION_PATH = Path(__file__).parent.parent / "assets" / "warehouse.png"
 
 
@@ -30,11 +30,6 @@ def _build_illustration() -> ft.Container:
 
 
 def _canvas_illustration() -> ft.Container:
-    """Programmatic placeholder for the isometric warehouse art.
-
-    Stylized: deep blue gradient with diagonal grid + faux racks + glowing core.
-    Used when `assets/warehouse.png` doesn't exist.
-    """
     rack_color = "#5EEAD4"      # mint accents
     rack_dark = "#1E3A8A"
     label_style = ft.TextStyle(size=11, weight=ft.FontWeight.W_500,
@@ -149,6 +144,7 @@ def _canvas_illustration() -> ft.Container:
     )
 
 
+# login card (right side):
 def _portal_card() -> ft.Container:
     return ft.Container(
         bgcolor=Colors.PRIMARY_SOFT,
@@ -184,9 +180,9 @@ def _portal_card() -> ft.Container:
 def _input_field(value: str, icon, password: bool = False) -> ft.TextField:
     return ft.TextField(
         value=value,
-        prefix_icon=icon,
+        prefix_icon=icon, # icon at the start of the input field.
         password=password,
-        can_reveal_password=password,
+        can_reveal_password=password, # show/hide password toggle.
         bgcolor=Colors.SURFACE,
         border_color=Colors.BORDER,
         focused_border_color=Colors.PRIMARY,
@@ -205,19 +201,22 @@ def signin_view(page: ft.Page) -> ft.Control:
     password_field = _input_field("fleetops", ft.Icons.LOCK_OUTLINE, password=True)
     remember_box = ft.Checkbox(value=False, fill_color=Colors.PRIMARY)
 
-    def attempt_login(_):
+    def attempt_login(_): # when user clicks "Access Dashboard" button:
         email = (email_field.value or "").strip()
         pw = password_field.value or ""
-        if not email or not pw:
+        if not email or not pw: # Validation:
             show_snack(page, "Email and password are required.", kind="warning")
             return
-        user = db.authenticate(email, pw)
+        user = db.authenticate(email, pw) # authenticate user. -> returns True/False
         if not user:
-            show_snack(page, "Invalid credentials. Try admin@fleetops.logistics / fleetops",
+            show_snack(page, "Invalid credentials.",
                        kind="error")
             return
-        page.data["user"] = user
+        page.data["user"] = user # -> user info stored in page.data.
+
+        # After successful login:
         show_snack(page, f"Welcome back, {user['name']}.", kind="success")
+
         # If we were deep-linked to a protected route, stay there; otherwise go
         # to the dashboard. Always force a re-render via the refresh callback —
         # page.go() is a no-op when the target route equals the current one.
@@ -229,6 +228,7 @@ def signin_view(page: ft.Page) -> ft.Control:
             if callable(refresh):
                 refresh()
 
+    # Validation of : If email field is empty or not valid, show error.
     def open_forgot(_):
         def submit(values: dict):
             email = (values.get("email") or "").strip()

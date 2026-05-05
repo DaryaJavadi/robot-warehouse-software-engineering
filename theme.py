@@ -35,8 +35,8 @@ class Colors:
     CHART_BLUE_FILL = "#DBEAFE"
 
 
-CARD_RADIUS = 12
-CARD_PADDING = 20
+CARD_RADIUS = 12 # rounded corners for cards.
+CARD_PADDING = 20 # padding inside cards.
 
 CARD_SHADOW = ft.BoxShadow(
     blur_radius=12,
@@ -55,19 +55,19 @@ def card(content, padding=CARD_PADDING, bgcolor=None, border_color=None) -> ft.C
         border=ft.Border.all(1, border_color or Colors.BORDER),
     )
 
-
+# used for normal text:
 def text(value: str, size: int = 14, weight: ft.FontWeight | None = None,
          color: str | None = None) -> ft.Text:
     return ft.Text(value, size=size, weight=weight, color=color or Colors.TEXT)
 
-
+# used for descriptions/subtitles/muted text:
 def muted(value: str, size: int = 13) -> ft.Text:
     return ft.Text(value, size=size, color=Colors.TEXT_MUTED)
 
-
+# for big titles:
 def h1(value: str) -> ft.Text:
     return ft.Text(value, size=28, weight=ft.FontWeight.BOLD, color=Colors.TEXT)
 
-
+# for section titles in forms:
 def h2(value: str) -> ft.Text:
     return ft.Text(value, size=18, weight=ft.FontWeight.BOLD, color=Colors.TEXT)

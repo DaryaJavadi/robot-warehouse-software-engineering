@@ -137,7 +137,9 @@ def _header(page: ft.Page) -> ft.Control:
                     _refresh(page),
                 ))
 
-    actions = ft.Row(spacing=10, controls=[
+    user_role = (page.data.get("user") or {}).get("role", "user")
+    
+    action_controls = [
         ft.OutlinedButton(
             content=ft.Row(spacing=6, tight=True, controls=[
                 ft.Icon(ft.Icons.AUTO_GRAPH, size=16, color=Colors.TEXT),
@@ -150,21 +152,27 @@ def _header(page: ft.Page) -> ft.Control:
                 shape=ft.RoundedRectangleBorder(radius=10),
                 padding=ft.Padding.symmetric(horizontal=14, vertical=12),
             ),
-        ),
-        ft.FilledButton(
-            content=ft.Row(spacing=6, tight=True, controls=[
-                ft.Icon(ft.Icons.GRID_VIEW, size=16, color="#FFFFFF"),
-                ft.Text("Optimize Zones", size=13,
-                        weight=ft.FontWeight.W_600, color="#FFFFFF"),
-            ]),
-            bgcolor=Colors.PRIMARY,
-            on_click=optimize,
-            style=ft.ButtonStyle(
-                shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-            ),
-        ),
-    ])
+        )
+    ]
+
+    if user_role == "manager":
+        action_controls.append(
+            ft.FilledButton(
+                content=ft.Row(spacing=6, tight=True, controls=[
+                    ft.Icon(ft.Icons.GRID_VIEW, size=16, color="#FFFFFF"),
+                    ft.Text("Optimize Zones", size=13,
+                            weight=ft.FontWeight.W_600, color="#FFFFFF"),
+                ]),
+                bgcolor=Colors.PRIMARY,
+                on_click=optimize,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                ),
+            )
+        )
+
+    actions = ft.Row(spacing=10, controls=action_controls)
     return ft.ResponsiveRow(
         run_spacing=14,
         controls=[
@@ -230,12 +238,15 @@ def _floor_tile(page: ft.Page, zone: dict) -> ft.Container:
                     submit_label="Save",
                     on_submit=submit)
 
+    user_role = (page.data.get("user") or {}).get("role", "user")
+
     return ft.Container(
         bgcolor=bg,
         border=ft.Border.all(1, border_c),
         border_radius=10,
         padding=14,
-        ink=True, on_click=edit,
+        ink=(user_role == "manager"), 
+        on_click=edit if user_role == "manager" else None,
         content=ft.Column(spacing=10, controls=[
             ft.Text(zone["category"], size=10, weight=ft.FontWeight.W_700,
                     color=Colors.TEXT_MUTED),
@@ -347,18 +358,25 @@ def _zone_breakdown(page: ft.Page) -> ft.Control:
                          color=Colors.DANGER if kind == "critical"
                          else Colors.PRIMARY),
         ]))
+    user_role = (page.data.get("user") or {}).get("role", "user")
+    
+    breakdown_controls = [*items]
+    if user_role == "manager":
+        breakdown_controls.append(
+            ft.OutlinedButton(
+                content=ft.Text("Export Inventory Report", size=13,
+                                weight=ft.FontWeight.W_600, color=Colors.TEXT),
+                on_click=lambda _: _export_inventory_csv(page),
+                style=ft.ButtonStyle(
+                    side=ft.BorderSide(1, Colors.BORDER),
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                ),
+            )
+        )
+    
     body = ft.Column(spacing=14, controls=[
-        *items,
-        ft.OutlinedButton(
-            content=ft.Text("Export Inventory Report", size=13,
-                            weight=ft.FontWeight.W_600, color=Colors.TEXT),
-            on_click=lambda _: _export_inventory_csv(page),
-            style=ft.ButtonStyle(
-                side=ft.BorderSide(1, Colors.BORDER),
-                shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-            ),
-        ),
+        *breakdown_controls,
         _optimization_ready_panel(),
     ])
     return panel(

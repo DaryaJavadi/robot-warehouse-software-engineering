@@ -285,6 +285,19 @@ def authenticate(email: str, password: str) -> dict | None:
         return dict(row) if row else None
 
 
+def register_user(email: str, password: str, name: str, role: str = "user") -> bool:
+    """Register a new user. Returns True if successful, False if email already exists."""
+    with cursor() as cur:
+        try:
+            cur.execute(
+                "INSERT INTO users (email, password, role, name) VALUES (?,?,?,?)",
+                (email.strip().lower(), password, role, name)
+            )
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+
 def list_robots() -> list[dict]:
     with cursor() as cur:
         cur.execute("SELECT * FROM robots ORDER BY id")

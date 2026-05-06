@@ -116,22 +116,28 @@ def _header(page: ft.Page) -> ft.Control:
                     on_submit=submit)
 
     # Logic Part:
-    actions = ft.Row(
-        spacing=10,
-        controls=[
-            ft.OutlinedButton(
-                content=ft.Row(spacing=6, tight=True, controls=[
-                    ft.Icon(ft.Icons.HISTORY, size=16, color=Colors.TEXT),
-                    ft.Text("Task History", size=13, color=Colors.TEXT,
-                            weight=ft.FontWeight.W_600),
-                ]),
-                on_click=open_history,
-                style=ft.ButtonStyle(
-                    side=ft.BorderSide(1, Colors.BORDER),
-                    shape=ft.RoundedRectangleBorder(radius=10),
-                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-                ),
+    user_role = (page.data.get("user") or {}).get("role", "user")
+
+    # Logic Part:
+    action_controls = [
+        ft.OutlinedButton(
+            content=ft.Row(spacing=6, tight=True, controls=[
+                ft.Icon(ft.Icons.HISTORY, size=16, color=Colors.TEXT),
+                ft.Text("Task History", size=13, color=Colors.TEXT,
+                        weight=ft.FontWeight.W_600),
+            ]),
+            on_click=open_history,
+            style=ft.ButtonStyle(
+                side=ft.BorderSide(1, Colors.BORDER),
+                shape=ft.RoundedRectangleBorder(radius=10),
+                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
             ),
+        )
+    ]
+
+    # Only managers can assign new tasks:
+    if user_role == "manager":
+        action_controls.append(
             ft.FilledButton(
                 content=ft.Row(spacing=6, tight=True, controls=[
                     ft.Icon(ft.Icons.ADD_CIRCLE_OUTLINE, size=16, color="#FFFFFF"),
@@ -144,8 +150,12 @@ def _header(page: ft.Page) -> ft.Control:
                     shape=ft.RoundedRectangleBorder(radius=10),
                     padding=ft.Padding.symmetric(horizontal=14, vertical=12),
                 ),
-            ),
-        ],
+            )
+        )
+
+    actions = ft.Row(
+        spacing=10,
+        controls=action_controls,
     )
     return ft.ResponsiveRow(
         run_spacing=14,
@@ -264,16 +274,25 @@ def _robot_table(page: ft.Page) -> ft.Control:
                     _stop_all_working(page),
                 ))
 
-    bulk_menu = ft.PopupMenuButton(
-        icon=ft.Icons.MORE_VERT, icon_color=Colors.TEXT_MUTED,
-        items=[
+    user_role = (page.data.get("user") or {}).get("role", "user")
+    
+    menu_items = []
+    if user_role == "manager":
+        menu_items.extend([
             ft.PopupMenuItem(content="Recall all idle to dock",
                              on_click=lambda _: recall_idle()),
             ft.PopupMenuItem(content="Stop all working robots",
                              on_click=lambda _: stop_all_working()),
-            ft.PopupMenuItem(content="Open Robot Detail",
-                             on_click=lambda _: page.go("/robots")),
-        ],
+        ])
+    
+    menu_items.append(
+        ft.PopupMenuItem(content="Open Robot Detail",
+                         on_click=lambda _: page.go("/robots"))
+    )
+
+    bulk_menu = ft.PopupMenuButton(
+        icon=ft.Icons.MORE_VERT, icon_color=Colors.TEXT_MUTED,
+        items=menu_items,
     )
 
     return panel(
@@ -332,10 +351,11 @@ def _open_all_alerts(page: ft.Page) -> None:
                         icon_color=Colors.TEXT_MUTED, icon_size=16,
                         tooltip="Dismiss",
                         on_click=lambda _, _id=a["id"]: (
-                            db.dismiss_alert(_id),
-                            show_snack(page, "Alert dismissed.",
-                                       kind="success"),
-                            _refresh(page),
+                            show_snack(page, "Access Denied: Administrative privileges required.", kind="error")
+                            if (page.data.get("user") or {}).get("role") != "manager" else
+                            (db.dismiss_alert(_id),
+                             show_snack(page, "Alert dismissed.", kind="success"),
+                             _refresh(page))
                         ),
                     ),
                 ],
@@ -360,9 +380,11 @@ def _critical_alerts(page: ft.Page) -> ft.Control:
                 page, "Dismiss alert?", f"{_a['title']} — {_a['body']}",
                 confirm_label="Dismiss", danger=True,
                 on_confirm=lambda _id=_a["id"]: (
-                    db.dismiss_alert(_id),
-                    show_snack(page, "Alert dismissed.", kind="success"),
-                    _refresh(page),
+                    show_snack(page, "Access Denied: Administrative privileges required.", kind="error")
+                    if (page.data.get("user") or {}).get("role") != "manager" else
+                    (db.dismiss_alert(_id),
+                     show_snack(page, "Alert dismissed.", kind="success"),
+                     _refresh(page))
                 ),
             ),
         )

@@ -29,12 +29,12 @@ app.add_middleware(
 
 DB_PATH = Path(__file__).parent / "fleetops.db"
 
-# ── Valid choices (mirrors the db.py schema) ─────────────────────────────────
+# Valid choices (mirrors the db.py schema):
 VALID_STATUSES = {"Working", "Ready", "Idle", "Maintenance", "Active"}
 VALID_SIGNALS  = {"Excellent", "Good", "Fair", "Poor", "Offline"}
 
 
-# ── Database helpers ──────────────────────────────────────────────────────────
+# Database helpers:
 
 def _get_conn() -> sqlite3.Connection:
     """Open a fresh connection with Row factory enabled."""
@@ -67,7 +67,7 @@ def _ensure_table() -> None:
 _ensure_table()
 
 
-# ── Pydantic model ────────────────────────────────────────────────────────────
+# Pydantic model:
 
 class RobotIn(BaseModel):
     """Input schema for registering a new robot."""
@@ -97,19 +97,27 @@ class RobotIn(BaseModel):
         return v
 
 
-# ── GET /robots — list all robots ─────────────────────────────────────────────
+# GET /robots — list all robots:
+from typing import Optional
 
 @app.get("/robots", summary="List all robots")
-def get_robots() -> list[dict]:
-    print(">>> API: GET /robots called")
+def get_robots(search: Optional[str] = None) -> list[dict]:
+    print(f">>> API: GET /robots called (search='{search}')")
     conn = _get_conn()
-    rows = conn.execute("SELECT * FROM robots ORDER BY id").fetchall()
+    if search:
+        like = f"%{search}%"
+        rows = conn.execute(
+            "SELECT * FROM robots WHERE id LIKE ? OR model LIKE ? ORDER BY id",
+            (like, like)
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM robots ORDER BY id").fetchall()
     conn.close()
     print(f"--- API: Returning {len(rows)} robots")
     return [dict(row) for row in rows]
 
 
-# ── GET /robots/{robot_id} — single robot ─────────────────────────────────────
+# GET /robots/{robot_id} — single robot:
 
 @app.get("/robots/{robot_id}", summary="Get a single robot by ID")
 def get_robot(robot_id: str) -> dict:
@@ -123,7 +131,7 @@ def get_robot(robot_id: str) -> dict:
     return dict(row)
 
 
-# ── POST /robots — add a new robot ────────────────────────────────────────────
+# POST /robots — add a new robot:
 
 @app.post("/robots", status_code=201, summary="Register a new robot")
 def add_robot(robot: RobotIn) -> dict:
@@ -161,7 +169,7 @@ def add_robot(robot: RobotIn) -> dict:
     return {"message": "Robot registered successfully", "robot": robot.model_dump()}
 
 
-# ── PUT /robots/{robot_id} — update a robot ───────────────────────────────────
+# PUT /robots/{robot_id} — update a robot:
 
 @app.put("/robots/{robot_id}", summary="Update an existing robot")
 def update_robot(robot_id: str, robot: RobotIn) -> dict:
@@ -199,7 +207,7 @@ def update_robot(robot_id: str, robot: RobotIn) -> dict:
     return {"message": "Robot updated successfully", "robot": robot.model_dump()}
 
 
-# ── DELETE /robots/{robot_id} — delete a robot ────────────────────────────────
+# DELETE /robots/{robot_id} — delete a robot:
 
 @app.delete("/robots/{robot_id}", summary="Delete a robot")
 def delete_robot(robot_id: str) -> dict:

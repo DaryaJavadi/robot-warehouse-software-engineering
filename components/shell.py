@@ -189,12 +189,23 @@ def _action_button(label: str, icon, page: ft.Page,
 
 def _sidebar_content(active: str, page: ft.Page,
                      on_select=None) -> ft.Column:
-    nav = [
-        _nav_button(label, icon, route, key == active, page, on_select)
-        for key, label, icon, route in NAV_ITEMS
-    ]
+    user_role = (page.data.get("user") or {}).get("role", "user")
+
+    # Filter navigation items based on role:
+    visible_nav = []
+    for key, label, icon, route in NAV_ITEMS:
+        # Restriction: Only 'manager' can see 'Add Robot' (key: add_robot)
+        if key == "add_robot" and user_role != "manager":
+            continue
+        visible_nav.append(
+            _nav_button(label, icon, route, key == active, page, on_select)
+        )
 
     def open_settings(_):
+        if user_role != "manager":
+            show_snack(page, "Access Denied: Administrative privileges required.", kind="error")
+            return
+        
         confirm(page, "Reset demo data?",
                 "This wipes the local database and re-seeds the sample data.",
                 confirm_label="Reset",
@@ -218,7 +229,7 @@ def _sidebar_content(active: str, page: ft.Page,
             ft.Container(
                 expand=True,
                 padding=ft.Padding.symmetric(horizontal=12, vertical=8),
-                content=ft.Column(spacing=4, controls=nav),
+                content=ft.Column(spacing=4, controls=visible_nav),
             ),
             ft.Divider(color=Colors.BORDER_LIGHT, thickness=1, height=1),
             ft.Container(
@@ -249,6 +260,10 @@ def _topbar(page: ft.Page, on_menu=None, show_menu: bool = False) -> ft.Containe
     )
     search = ft.Container(expand=True, content=search_field)
 
+    user_data = page.data.get("user") or {"name": "Guest User", "role": "user"}
+    user_display_name = user_data.get("name", "Unknown")
+    user_display_role = "System Administrator" if user_data.get("role") == "manager" else "Basic Operator"
+
     user = ft.Row(
         spacing=10,
         controls=[
@@ -273,9 +288,9 @@ def _topbar(page: ft.Page, on_menu=None, show_menu: bool = False) -> ft.Containe
                 spacing=0,
                 horizontal_alignment=ft.CrossAxisAlignment.END,
                 controls=[
-                    ft.Text("Fleet Manager", size=13, weight=ft.FontWeight.W_600,
+                    ft.Text(user_display_name, size=13, weight=ft.FontWeight.W_600,
                             color=Colors.TEXT),
-                    ft.Text("Main Warehouse A", size=11, color=Colors.TEXT_MUTED),
+                    ft.Text(user_display_role, size=11, color=Colors.TEXT_MUTED),
                 ],
             ),
         ],
@@ -332,7 +347,7 @@ def _footer() -> ft.Container:
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             controls=[
-                ft.Text("© 2024 FleetOps Logistics Solutions. All rights reserved.",
+                ft.Text("© 2026 FleetOps Logistics Solutions. All rights reserved.",
                         size=12, color=Colors.TEXT_MUTED),
                 ft.Row(spacing=10, controls=[
                     ft.Text("System Status:", size=12, color=Colors.TEXT_MUTED),

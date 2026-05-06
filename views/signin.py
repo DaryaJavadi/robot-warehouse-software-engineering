@@ -193,33 +193,95 @@ def _input_field(value: str, icon, password: bool = False) -> ft.TextField:
     )
 
 
+def labeled(label: str, field: ft.Control,
+            trailing: ft.Control | None = None) -> ft.Column:
+    return ft.Column(spacing=8, controls=[
+        ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            controls=[
+                ft.Text(label, size=13, weight=ft.FontWeight.W_600,
+                        color=Colors.TEXT),
+                *([trailing] if trailing else []),
+            ],
+        ),
+        field,
+    ])
+
+
 def signin_view(page: ft.Page) -> ft.Control:
     width = page.width or 1280
     is_narrow = width < 900
+    is_register = [False] # use list for mutable closure
 
+    name_field = _input_field("", ft.Icons.PERSON_OUTLINE)
     email_field = _input_field("admin@fleetops.logistics", ft.Icons.MAIL_OUTLINE)
     password_field = _input_field("fleetops", ft.Icons.LOCK_OUTLINE, password=True)
     remember_box = ft.Checkbox(value=False, fill_color=Colors.PRIMARY)
 
-    def attempt_login(_): # when user clicks "Access Dashboard" button:
+    title_text = ft.Text("Sign In", size=30, weight=ft.FontWeight.BOLD, color=Colors.TEXT)
+    subtitle_text = ft.Text("Enter your credentials to access the fleet control system.", size=13, color=Colors.TEXT_MUTED)
+    submit_btn_text = ft.Text("Access Dashboard", size=14, weight=ft.FontWeight.W_600, color="#FFFFFF")
+    
+    toggle_text = ft.Text("Don't have an account?", size=13, color=Colors.TEXT_MUTED)
+    toggle_link = ft.TextButton("Sign Up", style=ft.ButtonStyle(color=Colors.PRIMARY), on_click=lambda _: switch_mode())
+
+    name_container = ft.Column(visible=False, controls=[labeled("Full Name", name_field)])
+
+    def switch_mode():
+        is_register[0] = not is_register[0]
+        if is_register[0]:
+            title_text.value = "Create Account"
+            subtitle_text.value = "Join the FleetOps network to monitor warehouse operations."
+            submit_btn_text.value = "Register Account"
+            toggle_text.value = "Already have an account?"
+            toggle_link.text = "Sign In"
+            name_container.visible = True
+            email_field.value = ""
+            password_field.value = ""
+        else:
+            title_text.value = "Sign In"
+            subtitle_text.value = "Enter your credentials to access the fleet control system."
+            submit_btn_text.value = "Access Dashboard"
+            toggle_text.value = "Don't have an account?"
+            toggle_link.text = "Sign Up"
+            name_container.visible = False
+            email_field.value = "admin@fleetops.logistics"
+            password_field.value = "fleetops"
+        page.update()
+
+    def handle_submit(_):
+        if is_register[0]:
+            attempt_register()
+        else:
+            attempt_login()
+
+    def attempt_register():
+        name = (name_field.value or "").strip()
         email = (email_field.value or "").strip()
         pw = password_field.value or ""
-        if not email or not pw: # Validation:
+        if not name or not email or not pw:
+            show_snack(page, "All fields are required.", kind="warning")
+            return
+        
+        success = db.register_user(email, pw, name, role="user") # New users are 'user' role
+        if success:
+            show_snack(page, "Registration successful! Please sign in.", kind="success")
+            switch_mode()
+        else:
+            show_snack(page, "Email already registered.", kind="error")
+
+    def attempt_login():
+        email = (email_field.value or "").strip()
+        pw = password_field.value or ""
+        if not email or not pw:
             show_snack(page, "Email and password are required.", kind="warning")
             return
-        user = db.authenticate(email, pw) # authenticate user. -> returns True/False
+        user = db.authenticate(email, pw)
         if not user:
-            show_snack(page, "Invalid credentials.",
-                       kind="error")
+            show_snack(page, "Invalid credentials.", kind="error")
             return
-        page.data["user"] = user # -> user info stored in page.data.
-
-        # After successful login:
+        page.data["user"] = user
         show_snack(page, f"Welcome back, {user['name']}.", kind="success")
-
-        # If we were deep-linked to a protected route, stay there; otherwise go
-        # to the dashboard. Always force a re-render via the refresh callback —
-        # page.go() is a no-op when the target route equals the current one.
         target = page.route if page.route and page.route != "/" else "/dashboard"
         if target != page.route:
             page.go(target)
@@ -228,54 +290,27 @@ def signin_view(page: ft.Page) -> ft.Control:
             if callable(refresh):
                 refresh()
 
-    # Validation of : If email field is empty or not valid, show error.
     def open_forgot(_):
         def submit(values: dict):
             email = (values.get("email") or "").strip()
             if not email or "@" not in email:
                 show_snack(page, "Enter a valid work email.", kind="warning")
                 return
-            user = next((u for u in [db.authenticate(email, "fleetops")]
-                         if u), None)
-            if user:
-                show_snack(
-                    page,
-                    f"Reset link queued for {email}. (Default demo password is "
-                    "still 'fleetops'.)",
-                    kind="success",
-                )
+            # Minimal check for demo:
+            if email == "admin@fleetops.logistics":
+                 show_snack(page, "Reset link queued for admin@fleetops.logistics.", kind="success")
             else:
-                show_snack(
-                    page,
-                    f"No account for {email}. Try admin@fleetops.logistics.",
-                    kind="error",
-                )
+                 show_snack(page, f"No account found for {email}.", kind="error")
         form_dialog(page, "Reset Password",
-                    fields=[("email", "Work email",
-                             email_field.value or "")],
+                    fields=[("email", "Work email", email_field.value or "")],
                     submit_label="Send Reset Link",
                     on_submit=submit)
 
     forgot = ft.TextButton(
         "Forgot Password?",
-        style=ft.ButtonStyle(color=Colors.PRIMARY,
-                             padding=ft.Padding.all(0)),
+        style=ft.ButtonStyle(color=Colors.PRIMARY, padding=ft.Padding.all(0)),
         on_click=open_forgot,
     )
-
-    def labeled(label: str, field: ft.Control,
-                trailing: ft.Control | None = None) -> ft.Column:
-        return ft.Column(spacing=8, controls=[
-            ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                controls=[
-                    ft.Text(label, size=13, weight=ft.FontWeight.W_600,
-                            color=Colors.TEXT),
-                    *([trailing] if trailing else []),
-                ],
-            ),
-            field,
-        ])
 
     form = ft.Container(
         width=420 if not is_narrow else None,
@@ -283,13 +318,9 @@ def signin_view(page: ft.Page) -> ft.Control:
         content=ft.Column(
             spacing=22,
             controls=[
-                ft.Column(spacing=6, controls=[
-                    ft.Text("Sign In", size=30, weight=ft.FontWeight.BOLD,
-                            color=Colors.TEXT),
-                    ft.Text("Enter your credentials to access the fleet control system.",
-                            size=13, color=Colors.TEXT_MUTED),
-                ]),
+                ft.Column(spacing=6, controls=[title_text, subtitle_text]),
                 _portal_card(),
+                name_container,
                 labeled("Work Email", email_field),
                 labeled("Security Password", password_field, trailing=forgot),
                 ft.Row(spacing=8, controls=[
@@ -302,20 +333,17 @@ def signin_view(page: ft.Page) -> ft.Control:
                         alignment=ft.MainAxisAlignment.CENTER,
                         spacing=8,
                         controls=[
-                            ft.Text("Access Dashboard", size=14,
-                                    weight=ft.FontWeight.W_600, color="#FFFFFF"),
+                            submit_btn_text,
                             ft.Icon(ft.Icons.ARROW_FORWARD, color="#FFFFFF", size=18),
                         ],
                     ),
-                    height=50,
-                    width=10000,
-                    bgcolor=Colors.PRIMARY,
-                    color="#FFFFFF",
-                    style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=10),
-                        elevation=0,
-                    ),
-                    on_click=attempt_login,
+                    height=50, width=10000, bgcolor=Colors.PRIMARY, color="#FFFFFF",
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10), elevation=0),
+                    on_click=handle_submit,
+                ),
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    controls=[toggle_text, toggle_link]
                 ),
                 ft.Divider(color=Colors.BORDER_LIGHT, thickness=1, height=1),
                 ft.Row(

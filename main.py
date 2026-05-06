@@ -91,5 +91,44 @@ def main(page: ft.Page) -> None:
     render()
 
 
+def start_api() -> None:
+    """Starts the FastAPI server in a background process if not already running."""
+    import socket
+    import subprocess
+    import os
+    from pathlib import Path
+
+    # Check if port 8000 is already in use
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        in_use = s.connect_ex(("127.0.0.1", 8000)) == 0
+
+    if in_use:
+        print("--- System: API already running on port 8000.")
+        return
+
+    print("--- System: Starting FastAPI server...")
+    
+    # Path to venv python/uvicorn
+    root = Path(__file__).parent
+    uvicorn_path = root / "venv" / "Scripts" / "uvicorn.exe"
+    
+    if not uvicorn_path.exists():
+        # Fallback to system uvicorn if venv is missing
+        uvicorn_path = "uvicorn"
+
+    try:
+        subprocess.Popen(
+            [str(uvicorn_path), "api:app", "--host", "127.0.0.1", "--port", "8000"],
+            cwd=str(root),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
+        )
+        print("--- System: API server launched in background.")
+    except Exception as e:
+        print(f"!!! System: Failed to start API: {e}")
+
+
 if __name__ == "__main__":
+    start_api()
     ft.app(target=main, assets_dir="assets")

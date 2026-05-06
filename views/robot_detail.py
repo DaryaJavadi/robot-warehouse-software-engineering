@@ -75,20 +75,9 @@ def _header(page: ft.Page, robot: dict) -> ft.Control:
                     _refresh(page),
                 ))
 
-    actions = ft.Row(spacing=10, controls=[
-        ft.OutlinedButton(
-            content=ft.Row(spacing=6, tight=True, controls=[
-                ft.Icon(ft.Icons.RESTART_ALT, size=16, color=Colors.TEXT),
-                ft.Text("Return to Base", size=13,
-                        weight=ft.FontWeight.W_600, color=Colors.TEXT),
-            ]),
-            on_click=return_to_base,
-            style=ft.ButtonStyle(
-                side=ft.BorderSide(1, Colors.BORDER),
-                shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-            ),
-        ),
+    user_role = (page.data.get("user") or {}).get("role", "user")
+    
+    action_controls = [
         ft.OutlinedButton(
             content=ft.Row(spacing=6, tight=True, controls=[
                 ft.Icon(ft.Icons.LIGHTBULB_OUTLINE, size=16, color=Colors.TEXT),
@@ -101,21 +90,42 @@ def _header(page: ft.Page, robot: dict) -> ft.Control:
                 shape=ft.RoundedRectangleBorder(radius=10),
                 padding=ft.Padding.symmetric(horizontal=14, vertical=12),
             ),
-        ),
-        ft.FilledButton(
-            content=ft.Row(spacing=6, tight=True, controls=[
-                ft.Icon(ft.Icons.STOP_CIRCLE_OUTLINED, size=16, color="#FFFFFF"),
-                ft.Text("Emergency Stop", size=13,
-                        weight=ft.FontWeight.W_600, color="#FFFFFF"),
-            ]),
-            bgcolor=Colors.DANGER,
-            on_click=emergency_stop,
-            style=ft.ButtonStyle(
-                shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-            ),
-        ),
-    ])
+        )
+    ]
+
+    if user_role == "manager":
+        action_controls.insert(0, 
+            ft.OutlinedButton(
+                content=ft.Row(spacing=6, tight=True, controls=[
+                    ft.Icon(ft.Icons.RESTART_ALT, size=16, color=Colors.TEXT),
+                    ft.Text("Return to Base", size=13,
+                            weight=ft.FontWeight.W_600, color=Colors.TEXT),
+                ]),
+                on_click=return_to_base,
+                style=ft.ButtonStyle(
+                    side=ft.BorderSide(1, Colors.BORDER),
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                ),
+            )
+        )
+        action_controls.append(
+            ft.FilledButton(
+                content=ft.Row(spacing=6, tight=True, controls=[
+                    ft.Icon(ft.Icons.STOP_CIRCLE_OUTLINED, size=16, color="#FFFFFF"),
+                    ft.Text("Emergency Stop", size=13,
+                            weight=ft.FontWeight.W_600, color="#FFFFFF"),
+                ]),
+                bgcolor=Colors.DANGER,
+                on_click=emergency_stop,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                ),
+            )
+        )
+
+    actions = ft.Row(spacing=10, controls=action_controls)
     return ft.ResponsiveRow(
         run_spacing=14,
         controls=[

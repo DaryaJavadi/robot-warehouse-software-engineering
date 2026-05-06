@@ -43,7 +43,9 @@ def _header(page: ft.Page) -> ft.Control:
                 confirm_label="Shut Off", danger=True,
                 on_confirm=lambda: (_do_shutoff(page),))
 
-    actions = ft.Row(spacing=10, controls=[
+    user_role = (page.data.get("user") or {}).get("role", "user")
+    
+    action_controls = [
         ft.OutlinedButton(
             content=ft.Row(spacing=6, tight=True, controls=[
                 ft.Icon(ft.Icons.HISTORY, size=16, color=Colors.TEXT),
@@ -56,22 +58,28 @@ def _header(page: ft.Page) -> ft.Control:
                 shape=ft.RoundedRectangleBorder(radius=10),
                 padding=ft.Padding.symmetric(horizontal=14, vertical=12),
             ),
-        ),
-        ft.ElevatedButton(
-            content=ft.Row(spacing=6, tight=True, controls=[
-                ft.Icon(ft.Icons.BOLT, size=16, color="#FFFFFF"),
-                ft.Text("Emergency Shutoff", size=13,
-                        weight=ft.FontWeight.W_600, color="#FFFFFF"),
-            ]),
-            bgcolor=Colors.PRIMARY, color="#FFFFFF",
-            on_click=emergency_shutoff,
-            style=ft.ButtonStyle(
-                shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-                elevation=0,
-            ),
-        ),
-    ])
+        )
+    ]
+
+    if user_role == "manager":
+        action_controls.append(
+            ft.ElevatedButton(
+                content=ft.Row(spacing=6, tight=True, controls=[
+                    ft.Icon(ft.Icons.BOLT, size=16, color="#FFFFFF"),
+                    ft.Text("Emergency Shutoff", size=13,
+                            weight=ft.FontWeight.W_600, color="#FFFFFF"),
+                ]),
+                bgcolor=Colors.PRIMARY, color="#FFFFFF",
+                on_click=emergency_shutoff,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                    elevation=0,
+                ),
+            )
+        )
+
+    actions = ft.Row(spacing=10, controls=action_controls)
     return ft.ResponsiveRow(
         run_spacing=14,
         controls=[
@@ -182,6 +190,7 @@ def _kpis() -> ft.Control:
 
 
 def _bay_card(page: ft.Page, bay: dict) -> ft.Container:
+    user_role = (page.data.get("user") or {}).get("role", "user")
     name = bay["name"]
     status = bay["status"]
     status_kind = {"ACTIVE": "active", "AVAILABLE": "available",
@@ -244,7 +253,8 @@ def _bay_card(page: ft.Page, bay: dict) -> ft.Container:
                     ft.Text("Cycle Status", size=12, color=Colors.TEXT,
                             weight=ft.FontWeight.W_600),
                 ]),
-                on_click=cycle_status,
+                on_click=cycle_status if user_role == "manager" else 
+                         lambda _: show_snack(page, "Management only.", kind="warning"),
                 style=ft.ButtonStyle(
                     side=ft.BorderSide(1, Colors.BORDER),
                     shape=ft.RoundedRectangleBorder(radius=8),
@@ -284,7 +294,8 @@ def _bay_card(page: ft.Page, bay: dict) -> ft.Container:
                     ft.Text("Reset", size=12, color=Colors.TEXT,
                             weight=ft.FontWeight.W_600),
                 ]),
-                on_click=cycle_status,
+                on_click=cycle_status if user_role == "manager" else
+                         lambda _: show_snack(page, "Management only.", kind="warning"),
                 style=ft.ButtonStyle(
                     side=ft.BorderSide(1, Colors.BORDER),
                     shape=ft.RoundedRectangleBorder(radius=8),
@@ -356,7 +367,8 @@ def _bay_card(page: ft.Page, bay: dict) -> ft.Container:
                                                weight=ft.FontWeight.W_600,
                                                color=Colors.TEXT),
                                    ]),
-                    on_click=on_reset,
+                    on_click=on_reset if user_role == "manager" else
+                             lambda _: show_snack(page, "Management only.", kind="warning"),
                     style=ft.ButtonStyle(
                         side=ft.BorderSide(1, Colors.BORDER),
                         shape=ft.RoundedRectangleBorder(radius=8),
@@ -366,7 +378,8 @@ def _bay_card(page: ft.Page, bay: dict) -> ft.Container:
                 ft.IconButton(
                     icon=ft.Icons.MORE_VERT,
                     icon_color=Colors.TEXT_MUTED, icon_size=18,
-                    on_click=cycle_status,
+                    on_click=cycle_status if user_role == "manager" else
+                             lambda _: show_snack(page, "Management only.", kind="warning"),
                 ),
             ]),
         ])
@@ -476,6 +489,7 @@ def _power_chart(page: ft.Page) -> ft.Control:
 
 
 def _queue(page: ft.Page) -> ft.Control:
+    user_role = (page.data.get("user") or {}).get("role", "user")
     queue = db.list_queue()
     rows: list[ft.Control] = []
     for q in queue:
@@ -497,7 +511,8 @@ def _queue(page: ft.Page) -> ft.Control:
         rows.append(ft.Container(
             border=ft.Border.only(bottom=ft.BorderSide(1, Colors.BORDER_LIGHT)),
             padding=ft.Padding.symmetric(vertical=12),
-            ink=True, on_click=on_click,
+            ink=(user_role == "manager"), 
+            on_click=on_click if user_role == "manager" else None,
             content=ft.Row(
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
@@ -530,28 +545,37 @@ def _queue(page: ft.Page) -> ft.Control:
     if not rows:
         rows.append(ft.Text("Queue empty.", size=13, color=Colors.TEXT_MUTED))
 
-    body = ft.Column(spacing=0, controls=[
-        ft.Text("Robots awaiting bay availability — click any row to remove.",
+    queue_controls = [
+        ft.Text("Robots awaiting bay availability" + 
+                (" — click any row to remove." if user_role == "manager" else "."),
                 size=12, color=Colors.TEXT_MUTED),
         ft.Container(height=8),
         *rows,
         ft.Container(height=8),
-        ft.OutlinedButton(
-            content=ft.Text("Optimize Queue Order", size=13,
-                            weight=ft.FontWeight.W_600, color=Colors.TEXT),
-            on_click=lambda _: (
-                db.reorder_queue(),
-                show_snack(page,
-                           "Queue reordered by battery (lowest first).",
-                           kind="success"),
-                _refresh(page),
-            ),
-            style=ft.ButtonStyle(
-                side=ft.BorderSide(1, Colors.BORDER),
-                shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-            ),
-        ),
+    ]
+    
+    if user_role == "manager":
+        queue_controls.append(
+            ft.OutlinedButton(
+                content=ft.Text("Optimize Queue Order", size=13,
+                                weight=ft.FontWeight.W_600, color=Colors.TEXT),
+                on_click=lambda _: (
+                    db.reorder_queue(),
+                    show_snack(page,
+                               "Queue reordered by battery (lowest first).",
+                               kind="success"),
+                    _refresh(page),
+                ),
+                style=ft.ButtonStyle(
+                    side=ft.BorderSide(1, Colors.BORDER),
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                ),
+            )
+        )
+
+    body = ft.Column(spacing=0, controls=[
+        *queue_controls,
         ft.Container(height=8),
         ft.Container(
             bgcolor=Colors.WARNING_SOFT,

@@ -22,12 +22,12 @@ from components.dialogs import show_snack, confirm
 
 API_URL = "http://127.0.0.1:8000"
 
-# ── valid dropdown choices (must match api.py validators) ─────────────────────
+# Valid dropdown choices:
 STATUS_OPTIONS  = ["Working", "Ready", "Idle", "Maintenance", "Active"]
 SIGNAL_OPTIONS  = ["Excellent", "Good", "Fair", "Poor", "Offline"]
 
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+# Helpers:
 
 def _field(label: str, hint: str = "") -> ft.TextField:
     return ft.TextField(
@@ -63,15 +63,15 @@ def _section_header(title: str, subtitle: str) -> ft.Control:
     )
 
 
-# ── main view builder ─────────────────────────────────────────────────────────
+# main view builder:
 
 def add_robot_view(page: ft.Page) -> ft.Control:
     """Robot Management View with Table and Form."""
 
-    # ── State ─────────────────────────────────────────────────────────────────
+    # State:
     editing_id = [None]  # Using a list for mutable closure access
 
-    # ── Form Controls ─────────────────────────────────────────────────────────
+    # Form Controls:
     f_id    = _field("Robot ID *",   "e.g. RX-900")
     f_model = _field("Model *",      "e.g. Titan-X Cargo Lifter")
     f_serial= _field("Serial No. *", "e.g. TX-9000-AA")
@@ -91,7 +91,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
 
     submit_btn_text = ft.Text("Register Robot", size=14, weight=ft.FontWeight.W_600, color="#FFFFFF")
     
-    # ── Table Controls ────────────────────────────────────────────────────────
+    # Table Controls:
     table = ft.DataTable(
         column_spacing=24,
         heading_row_color=Colors.PRIMARY_SOFT,
@@ -106,70 +106,199 @@ def add_robot_view(page: ft.Page) -> ft.Control:
     )
     status_text = ft.Text("Initializing...", size=12, color=Colors.TEXT_MUTED)
 
-    # ── Navigation logic ──────────────────────────────────────────────────────
+    # Search Field:
+    search_field = ft.TextField(
+        label="Search by ID or Model",
+        width=320,
+        prefix_icon=ft.Icons.SEARCH,
+        on_change=lambda e: load_robots(e.control.value),
+    )
+
+    # Edit Dialog Fields:
+    dlg_id      = ft.TextField(label="Robot ID", read_only=True)
+    dlg_model   = _field("Model")
+    dlg_serial  = _field("Serial No.")
+    dlg_zone    = _field("Zone")
+    dlg_maint   = _field("Last Maintenance")
+    dlg_temp    = _field("Temperature (°C)")
+    dlg_status  = _dropdown("Status", STATUS_OPTIONS)
+    dlg_signal  = _dropdown("Signal", SIGNAL_OPTIONS)
+    
+    dlg_battery_label = ft.Text("Battery: 80%", size=13, color=Colors.TEXT_MUTED)
+    dlg_battery_slider = ft.Slider(
+        min=0, max=100, value=80, divisions=20,
+        active_color=Colors.PRIMARY,
+        on_change=lambda e: (setattr(dlg_battery_label, "value", f"Battery: {int(e.control.value)}%"), page.update()),
+    )
+
+    def close_dialog(_):
+        edit_dialog.open = False
+        page.update()
+
+    def save_edit(_):
+        payload = {
+            "id": dlg_id.value,
+            "model": dlg_model.value.strip(),
+            "serial": dlg_serial.value.strip(),
+            "status": dlg_status.value,
+            "zone": dlg_zone.value.strip(),
+            "battery": round(dlg_battery_slider.value / 100, 2),
+            "last_maintenance": dlg_maint.value.strip(),
+            "temperature": float(dlg_temp.value.strip()) if dlg_temp.value.strip() else 32.0,
+            "signal": dlg_signal.value or "Excellent",
+        }
+        
+        try:
+            print(f">>> Flet: Requesting PUT /robots/{dlg_id.value}")
+            resp = requests.put(f"{API_URL}/robots/{dlg_id.value}", json=payload, timeout=5)
+            if resp.status_code == 200:
+                show_snack(page, "Robot updated successfully!", kind="success")
+                edit_dialog.open = False
+                load_robots(search_field.value)
+            else:
+                show_snack(page, f"Update failed: {resp.text}", kind="error")
+        except Exception as ex:
+            show_snack(page, f"Error: {ex}", kind="error")
+        page.update()
+
+    edit_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Edit Robot Record"),
+        content=ft.Container(
+            width=400,
+            content=ft.Column([
+                dlg_id, dlg_model, dlg_serial, dlg_zone,
+                ft.Row([dlg_status, dlg_signal]),
+                dlg_maint, dlg_temp,
+                ft.Column([dlg_battery_label, dlg_battery_slider]),
+            ], tight=True, scroll=ft.ScrollMode.AUTO)
+        ),
+        actions=[
+            ft.TextButton("Cancel", on_click=close_dialog),
+            ft.ElevatedButton("Save Changes", bgcolor=Colors.PRIMARY, color="#FFFFFF", on_click=save_edit),
+        ],
+    )
+    page.overlay.append(edit_dialog)
+
+    def open_edit_dialog(robot: dict):
+        dlg_id.value = robot["id"]
+        dlg_model.value = robot["model"]
+        dlg_serial.value = robot["serial"]
+        dlg_zone.value = robot["zone"]
+        dlg_maint.value = robot["last_maintenance"]
+        dlg_temp.value = str(robot.get("temperature", 32.0))
+        dlg_status.value = robot["status"]
+        dlg_signal.value = robot.get("signal", "Excellent")
+        dlg_battery_slider.value = robot["battery"] * 100
+        dlg_battery_label.value = f"Battery: {int(dlg_battery_slider.value)}%"
+        
+        edit_dialog.open = True
+        page.update()
+
+    # Navigation logic:
+    user_role = (page.data.get("user") or {}).get("role", "user")
+    
+    tabs = [
+        ft.NavigationBarDestination(icon=ft.Icons.LIST_ALT_OUTLINED, selected_icon=ft.Icons.LIST_ALT, label="Records"),
+    ]
+    if user_role == "manager":
+        tabs.append(
+            ft.NavigationBarDestination(icon=ft.Icons.ADD_BOX_OUTLINED, selected_icon=ft.Icons.ADD_BOX, label="Add/Edit")
+        )
+
     nav = ft.NavigationBar(
         selected_index=0,
         bgcolor=Colors.SURFACE,
         indicator_color=Colors.PRIMARY_SOFT,
-        destinations=[
-            ft.NavigationBarDestination(icon=ft.Icons.LIST_ALT_OUTLINED, selected_icon=ft.Icons.LIST_ALT, label="Records"),
-            ft.NavigationBarDestination(icon=ft.Icons.ADD_BOX_OUTLINED, selected_icon=ft.Icons.ADD_BOX, label="Add/Edit"),
-        ],
+        destinations=tabs,
     )
 
     def switch_to_tab(idx: int):
+        if user_role != "manager" and idx != 0:
+            nav.selected_index = 0
+            page.update()
+            return
         nav.selected_index = idx
         records_panel.visible = (idx == 0)
         form_panel.visible    = (idx == 1)
         page.update()
 
-    # ── API Operations ────────────────────────────────────────────────────────
+    # API Operations:
 
-    def load_robots():
-        print(">>> Flet: Requesting GET /robots")
+    def load_robots(search_text: str = ""):
+        print(f">>> Flet: Requesting GET /robots (search='{search_text}')")
         refresh_btn.disabled = True
         refresh_btn.content.controls[0].visible = True # Show ProgressRing
         status_text.value = "Fetching data..."
+        status_text.color = Colors.TEXT_MUTED
         page.update()
 
-        try:
-            resp = requests.get(f"{API_URL}/robots", timeout=5)
-            resp.raise_for_status()
-            robots = resp.json()
-            print(f"--- Flet: Received {len(robots)} robots")
-            
-            table.rows.clear()
-            for r in robots:
-                rid = r["id"]
-                batt_pct = f"{int(r['battery'] * 100)}%"
-                table.rows.append(
-                    ft.DataRow(cells=[
-                        ft.DataCell(ft.Text(rid, weight=ft.FontWeight.BOLD, color=Colors.PRIMARY)),
-                        ft.DataCell(ft.Text(r["model"])),
-                        ft.DataCell(ft.Text(r["status"])),
-                        ft.DataCell(ft.Text(batt_pct)),
-                        ft.DataCell(
-                            ft.Row([
-                                ft.IconButton(ft.Icons.EDIT_OUTLINED, icon_size=18, 
-                                              icon_color=Colors.PRIMARY, tooltip="Edit",
-                                              on_click=lambda _, _r=r: start_edit(_r)),
-                                ft.IconButton(ft.Icons.DELETE_OUTLINED, icon_size=18, 
-                                              icon_color=Colors.DANGER, tooltip="Delete",
-                                              on_click=lambda _, _id=rid: delete_robot(_id)),
-                            ], spacing=0)
-                        ),
-                    ])
-                )
-            status_text.value = f"Success: {len(robots)} robot(s) loaded"
-            status_text.color = Colors.SUCCESS
-        except Exception as e:
-            print(f"!!! Flet: GET /robots failed - {e}")
-            status_text.value = f"Error: {e}"
-            status_text.color = Colors.DANGER
-        finally:
-            refresh_btn.disabled = False
-            refresh_btn.content.controls[0].visible = False
-            page.update()
+        max_retries = 3
+        retry_delay = 1.5 # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                params = {"search": search_text} if search_text else {}
+                resp = requests.get(f"{API_URL}/robots", params=params, timeout=5)
+                resp.raise_for_status()
+                robots = resp.json()
+                print(f"--- Flet: Received {len(robots)} robots")
+                
+                # Role-based restriction:
+                user_role = (page.data.get("user") or {}).get("role", "user")
+                
+                table.rows.clear()
+                for r in robots:
+                    rid = r["id"]
+                    batt_pct = f"{int(r['battery'] * 100)}%"
+                    
+                    # Only show actions for managers:
+                    action_row = ft.Row(spacing=0)
+                    if user_role == "manager":
+                        action_row.controls.extend([
+                            ft.IconButton(ft.Icons.EDIT_OUTLINED, icon_size=18, 
+                                          icon_color=Colors.PRIMARY, tooltip="Edit",
+                                          on_click=lambda _, _r=r: open_edit_dialog(_r)),
+                            ft.IconButton(ft.Icons.DELETE_OUTLINED, icon_size=18, 
+                                          icon_color=Colors.DANGER, tooltip="Delete",
+                                          on_click=lambda _, _id=rid: delete_robot(_id)),
+                        ])
+                    else:
+                        action_row.controls.append(
+                            ft.Text("View Only", size=11, color=Colors.TEXT_MUTED, italic=True)
+                        )
+
+                    table.rows.append(
+                        ft.DataRow(cells=[
+                            ft.DataCell(ft.Text(rid, weight=ft.FontWeight.BOLD, color=Colors.PRIMARY)),
+                            ft.DataCell(ft.Text(r["model"])),
+                            ft.DataCell(ft.Text(r["status"])),
+                            ft.DataCell(ft.Text(batt_pct)),
+                            ft.DataCell(action_row),
+                        ])
+                    )
+                status_text.value = f"Success: {len(robots)} robot(s) loaded"
+                status_text.color = Colors.SUCCESS
+                break # Exit retry loop on success
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                if attempt < max_retries - 1:
+                    print(f"--- Flet: API connection attempt {attempt + 1} failed, retrying...")
+                    status_text.value = f"API starting up... (Attempt {attempt + 1}/{max_retries})"
+                    page.update()
+                    time.sleep(retry_delay)
+                else:
+                    print(f"!!! Flet: GET /robots failed after {max_retries} attempts - {e}")
+                    status_text.value = "Error: API server not responding."
+                    status_text.color = Colors.DANGER
+            except Exception as e:
+                print(f"!!! Flet: Unexpected error - {e}")
+                status_text.value = f"Error: {e}"
+                status_text.color = Colors.DANGER
+                break
+        
+        refresh_btn.disabled = False
+        refresh_btn.content.controls[0].visible = False
+        page.update()
 
     def delete_robot(robot_id: str):
         def on_confirmed():
@@ -178,7 +307,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
                 resp = requests.delete(f"{API_URL}/robots/{robot_id}", timeout=5)
                 if resp.status_code == 200:
                     show_snack(page, f"Robot {robot_id} deleted.", kind="success")
-                    load_robots()
+                    load_robots(search_field.value)
                 else:
                     show_snack(page, f"Delete failed: {resp.text}", kind="error")
             except Exception as e:
@@ -248,13 +377,13 @@ def add_robot_view(page: ft.Page) -> ft.Control:
                 show_snack(page, "Success!", kind="success")
                 clear_form()
                 switch_to_tab(0)
-                load_robots()
+                load_robots(search_field.value)
             else:
                 show_snack(page, f"Error: {resp.json().get('detail', resp.text)}", kind="error")
         except Exception as e:
             show_snack(page, f"Request failed: {e}", kind="error")
 
-    # ── UI Layout ─────────────────────────────────────────────────────────────
+    # UI Layout:
 
     refresh_btn = ft.FilledButton(
         content=ft.Row([
@@ -269,6 +398,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
         visible=True, expand=True, spacing=16,
         controls=[
             ft.Row([_section_header("Robot Fleet", "Manage warehouse robots via API"), refresh_btn], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Row([search_field], alignment=ft.MainAxisAlignment.START),
             status_text,
             ft.Container(
                 bgcolor=Colors.SURFACE, border_radius=12, border=ft.Border.all(1, Colors.BORDER),
@@ -300,7 +430,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
 
     nav.on_change = lambda e: switch_to_tab(e.control.selected_index)
 
-    # ── Initial Load ──────────────────────────────────────────────────────────
+    # Initial Load:
     def initial_load():
         time.sleep(0.3)
         load_robots()

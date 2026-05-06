@@ -76,35 +76,41 @@ def _header(page: ft.Page, task: dict) -> ft.Control:
                     _refresh(page),
                 ))
 
-    actions = ft.Row(spacing=10, controls=[
-        ft.OutlinedButton(
-            content=ft.Row(spacing=6, tight=True, controls=[
-                ft.Icon(ft.Icons.RESTART_ALT, size=16, color=Colors.TEXT),
-                ft.Text("Reset Path", size=13,
-                        weight=ft.FontWeight.W_600, color=Colors.TEXT),
-            ]),
-            on_click=reset_path,
-            style=ft.ButtonStyle(
-                side=ft.BorderSide(1, Colors.BORDER),
-                shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+    user_role = (page.data.get("user") or {}).get("role", "user")
+    
+    action_controls = []
+    if user_role == "manager":
+        action_controls.extend([
+            ft.OutlinedButton(
+                content=ft.Row(spacing=6, tight=True, controls=[
+                    ft.Icon(ft.Icons.RESTART_ALT, size=16, color=Colors.TEXT),
+                    ft.Text("Reset Path", size=13,
+                            weight=ft.FontWeight.W_600, color=Colors.TEXT),
+                ]),
+                on_click=reset_path,
+                style=ft.ButtonStyle(
+                    side=ft.BorderSide(1, Colors.BORDER),
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                ),
             ),
-        ),
-        ft.ElevatedButton(
-            content=ft.Row(spacing=6, tight=True, controls=[
-                ft.Icon(ft.Icons.PLAY_ARROW, size=16, color="#FFFFFF"),
-                ft.Text("Force Complete", size=13,
-                        weight=ft.FontWeight.W_600, color="#FFFFFF"),
-            ]),
-            bgcolor=Colors.PRIMARY, color="#FFFFFF",
-            on_click=force_complete,
-            style=ft.ButtonStyle(
-                shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-                elevation=0,
+            ft.ElevatedButton(
+                content=ft.Row(spacing=6, tight=True, controls=[
+                    ft.Icon(ft.Icons.PLAY_ARROW, size=16, color="#FFFFFF"),
+                    ft.Text("Force Complete", size=13,
+                            weight=ft.FontWeight.W_600, color="#FFFFFF"),
+                ]),
+                bgcolor=Colors.PRIMARY, color="#FFFFFF",
+                on_click=force_complete,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                    elevation=0,
+                ),
             ),
-        ),
-    ])
+        ])
+
+    actions = ft.Row(spacing=10, controls=action_controls)
     return ft.ResponsiveRow(
         run_spacing=14,
         controls=[
@@ -651,6 +657,7 @@ def _mission_log(page: ft.Page, task: dict) -> ft.Control:
 
 
 def task_detail_view(page: ft.Page) -> ft.Control:
+    user_role = (page.data.get("user") or {}).get("role", "user")
     tid = (page.data or {}).get("selected_task_id") or DEFAULT_TASK_ID
     task = db.get_task(tid)
     if not task:
@@ -677,7 +684,9 @@ def task_detail_view(page: ft.Page) -> ft.Control:
                     ft.Container(
                         col={"xs": 12, "lg": 4},
                         content=ft.Column(spacing=20, controls=[
-                            _mission_controls(page, task),
+                            _mission_controls(page, task) if user_role == "manager" else 
+                            panel("Mission Controls", body=ft.Text("Management controls restricted to System Administrators.", 
+                                                                  size=13, color=Colors.TEXT_MUTED, italic=True)),
                             _mission_log(page, task),
                         ]),
                     ),

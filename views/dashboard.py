@@ -97,7 +97,7 @@ def _header(page: ft.Page) -> ft.Control:
             )
             db.insert_alert("info", "TASK CREATED", # inserts an alert into the database.
                             f"{name} queued for dispatch.", new_id, "just now")
-            show_snack(page, f"Created {new_id}.", kind="success")
+            show_snack(page, f"✓ Task {new_id} — '{name}' created successfully!", kind="success")
             _refresh(page)
 
         form_dialog(page, "Assign New Task",

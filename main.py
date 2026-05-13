@@ -50,7 +50,10 @@ def main(page: ft.Page) -> None:
 
     def render() -> None: # removing old UI before drawing new UI.
         page.controls.clear()
+        # Preserve open snackbars so success messages stay visible after refresh
+        active_snacks = [c for c in page.overlay if isinstance(c, ft.SnackBar) and c.open]
         page.overlay.clear()
+        page.overlay.extend(active_snacks)
         try:
             while page.pop_dialog() is not None:
                 pass

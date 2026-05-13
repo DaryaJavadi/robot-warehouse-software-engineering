@@ -24,6 +24,7 @@ def _build_illustration() -> ft.Container:
             image=ft.DecorationImage(
                 src="warehouse.png",      # relative to assets/
                 fit=ft.BoxFit.COVER,      # fill the panel; crop overflow
+                alignment=ft.Alignment(0.85, 0),  # shift image near the sign-in side
             ),
         )
     return _canvas_illustration()
@@ -389,9 +390,9 @@ def signin_view(page: ft.Page) -> ft.Control:
         expand=True,
         spacing=0,
         controls=[
-            ft.Container(expand=1, content=_build_illustration()),
+            ft.Container(expand=3, content=_build_illustration()),
             ft.Container(
-                expand=1,
+                expand=2,
                 bgcolor=Colors.SURFACE,
                 alignment=ft.Alignment.CENTER,
                 content=form,

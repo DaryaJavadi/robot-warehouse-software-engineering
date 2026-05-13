@@ -136,6 +136,16 @@ def add_robot_view(page: ft.Page) -> ft.Control:
         page.update()
 
     def save_edit(_):
+        # Validate temperature field:
+        temp_val = 32.0
+        temp_raw = (dlg_temp.value or "").strip()
+        if temp_raw:
+            try:
+                temp_val = float(temp_raw)
+            except ValueError:
+                show_snack(page, f"Invalid temperature value: '{temp_raw}'. Please enter a valid number.", kind="error")
+                return
+
         payload = {
             "id": dlg_id.value,
             "model": dlg_model.value.strip(),
@@ -144,7 +154,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
             "zone": dlg_zone.value.strip(),
             "battery": round(dlg_battery_slider.value / 100, 2),
             "last_maintenance": dlg_maint.value.strip(),
-            "temperature": float(dlg_temp.value.strip()) if dlg_temp.value.strip() else 32.0,
+            "temperature": temp_val,
             "signal": dlg_signal.value or "Excellent",
         }
         
@@ -152,7 +162,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
             print(f">>> Flet: Requesting PUT /robots/{dlg_id.value}")
             resp = requests.put(f"{API_URL}/robots/{dlg_id.value}", json=payload, timeout=5)
             if resp.status_code == 200:
-                show_snack(page, "Robot updated successfully!", kind="success")
+                show_snack(page, f"✓ Robot {dlg_id.value} updated successfully!", kind="success")
                 edit_dialog.open = False
                 load_robots(search_field.value)
             else:
@@ -349,6 +359,16 @@ def add_robot_view(page: ft.Page) -> ft.Control:
         submit_btn_text.value = "Register Robot"
 
     def submit_form(_):
+        # Validate temperature field:
+        temp_val = 32.0
+        temp_raw = (f_temp.value or "").strip()
+        if temp_raw:
+            try:
+                temp_val = float(temp_raw)
+            except ValueError:
+                show_snack(page, f"Invalid temperature value: '{temp_raw}'. Please enter a valid number.", kind="error")
+                return
+
         payload = {
             "id": f_id.value.strip(),
             "model": f_model.value.strip(),
@@ -357,7 +377,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
             "zone": f_zone.value.strip(),
             "battery": round(battery_slider.value / 100, 2),
             "last_maintenance": f_maint.value.strip(),
-            "temperature": float(f_temp.value.strip()) if f_temp.value.strip() else 32.0,
+            "temperature": temp_val,
             "signal": dd_signal.value or "Excellent",
         }
         
@@ -374,7 +394,8 @@ def add_robot_view(page: ft.Page) -> ft.Control:
                 resp = requests.post(f"{API_URL}/robots", json=payload, timeout=5)
             
             if resp.status_code in (200, 201):
-                show_snack(page, "Success!", kind="success")
+                action = "updated" if editing_id[0] else "registered"
+                show_snack(page, f"✓ Robot {payload['id']} {action} successfully!", kind="success")
                 clear_form()
                 switch_to_tab(0)
                 load_robots(search_field.value)

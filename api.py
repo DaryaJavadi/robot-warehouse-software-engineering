@@ -12,7 +12,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -100,21 +100,59 @@ class RobotIn(BaseModel):
 # GET /robots — list all robots:
 from typing import Optional
 
+ALLOWED_SORT = {"id", "model", "serial", "status", "zone", "battery", "last_maintenance", "temperature", "signal"}
+
 @app.get("/robots", summary="List all robots")
-def get_robots(search: Optional[str] = None) -> list[dict]:
-    print(f">>> API: GET /robots called (search='{search}')")
+def get_robots(
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    search: Optional[str] = Query(None),
+    sort_by: str = Query("id"),
+    order: str = Query("asc"),
+) -> dict:
+    print(f">>> API: GET /robots called (limit={limit}, offset={offset}, search='{search}', sort_by='{sort_by}', order='{order}')")
+    
+    # safety: only allow known column names to prevent SQL injection
+    if sort_by not in ALLOWED_SORT:
+        sort_by = "id"
+    if order not in ("asc", "desc"):
+        order = "asc"
+        
     conn = _get_conn()
+    
+    # build WHERE clause
     if search:
         like = f"%{search}%"
-        rows = conn.execute(
-            "SELECT * FROM robots WHERE id LIKE ? OR model LIKE ? ORDER BY id",
-            (like, like)
-        ).fetchall()
+        where = "WHERE id LIKE ? OR model LIKE ? OR status LIKE ? OR zone LIKE ?"
+        args = (like, like, like, like)
     else:
-        rows = conn.execute("SELECT * FROM robots ORDER BY id").fetchall()
+        where = ""
+        args = ()
+        
+    # total count (needed for page math)
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM robots {where}", args
+    ).fetchone()[0]
+    
+    # fetch page
+    rows = conn.execute(
+        f"""SELECT * FROM robots {where}
+            ORDER BY {sort_by} {order}
+            LIMIT ? OFFSET ?""",
+        args + (limit, offset),
+    ).fetchall()
+    
     conn.close()
-    print(f"--- API: Returning {len(rows)} robots")
-    return [dict(row) for row in rows]
+    print(f"--- API: Returning {len(rows)} of {total} robots")
+    
+    items_list = [dict(row) for row in rows]
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": items_list,
+        "robots": items_list,
+    }
 
 
 # GET /robots/{robot_id} — single robot:

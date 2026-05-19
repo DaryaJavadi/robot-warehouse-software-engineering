@@ -70,6 +70,9 @@ def add_robot_view(page: ft.Page) -> ft.Control:
 
     # State:
     editing_id = [None]  # Using a list for mutable closure access
+    current_page = [1]
+    total_pages = [1]
+    PAGE_SIZE = 10
 
     # Form Controls:
     f_id    = _field("Robot ID *",   "e.g. RX-900")
@@ -93,26 +96,126 @@ def add_robot_view(page: ft.Page) -> ft.Control:
     
     # Table Controls:
     table = ft.DataTable(
-        column_spacing=24,
+        column_spacing=16,
         heading_row_color=Colors.PRIMARY_SOFT,
         columns=[
             ft.DataColumn(ft.Text("ID",     size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
             ft.DataColumn(ft.Text("Model",  size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
+            ft.DataColumn(ft.Text("Serial", size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
             ft.DataColumn(ft.Text("Status", size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
+            ft.DataColumn(ft.Text("Zone",   size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
             ft.DataColumn(ft.Text("Battery",size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
+            ft.DataColumn(ft.Text("Maint",  size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
+            ft.DataColumn(ft.Text("Temp",   size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
+            ft.DataColumn(ft.Text("Signal", size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
             ft.DataColumn(ft.Text("Actions",size=12, weight=ft.FontWeight.W_700, color=Colors.PRIMARY)),
         ],
         rows=[],
     )
     status_text = ft.Text("Initializing...", size=12, color=Colors.TEXT_MUTED)
 
-    # Search Field:
+    # Search Field & Sorting & Paging:
     search_field = ft.TextField(
-        label="Search by ID or Model",
-        width=320,
+        label="Search by ID, Model, Zone, Status...",
+        width=280,
         prefix_icon=ft.Icons.SEARCH,
-        on_change=lambda e: load_robots(e.control.value),
+        on_change=lambda e: go_to_page(1), # Reset to page 1 on new search
     )
+
+    sort_dropdown = ft.Dropdown(
+        label="Sort by",
+        width=160,
+        value="id",
+        border_color=Colors.BORDER,
+        focused_border_color=Colors.PRIMARY,
+        border_radius=10,
+        text_size=14,
+        label_style=ft.TextStyle(color=Colors.TEXT_MUTED, size=13),
+        options=[
+            ft.dropdown.Option("id", "ID"),
+            ft.dropdown.Option("model", "Model"),
+            ft.dropdown.Option("status", "Status"),
+            ft.dropdown.Option("battery", "Battery"),
+            ft.dropdown.Option("zone", "Zone"),
+            ft.dropdown.Option("temperature", "Temperature"),
+            ft.dropdown.Option("signal", "Signal"),
+        ],
+    )
+    sort_dropdown.on_change = lambda e: load_robots()
+
+    order_dropdown = ft.Dropdown(
+        label="Order",
+        width=170,
+        value="asc",
+        border_color=Colors.BORDER,
+        focused_border_color=Colors.PRIMARY,
+        border_radius=10,
+        text_size=14,
+        label_style=ft.TextStyle(color=Colors.TEXT_MUTED, size=13),
+        options=[
+            ft.dropdown.Option("asc", "↑ Ascending"),
+            ft.dropdown.Option("desc", "↓ Descending"),
+        ],
+    )
+    order_dropdown.on_change = lambda e: load_robots()
+
+    counter_text = ft.Text("", size=13, color=Colors.TEXT_MUTED)
+
+    pager_row = ft.Row([], alignment=ft.MainAxisAlignment.CENTER)
+
+    def go_to_page(n: int):
+        current_page[0] = n
+        load_robots()
+
+    def _page_btn(p: int, current: int):
+        """Return a styled button for page p; highlighted if p == current."""
+        return ft.ElevatedButton(
+            str(p),
+            bgcolor=Colors.PRIMARY if p == current else Colors.SURFACE,
+            color=Colors.SURFACE if p == current else Colors.TEXT,
+            width=40,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.Padding.all(0),
+            ),
+            on_click=lambda e, pg=p: go_to_page(pg),
+        )
+
+    def rebuild_pager():
+        pager_row.controls.clear()
+        tp = total_pages[0]
+        cp = current_page[0]
+        # ─ Previous button
+        pager_row.controls.append(
+            ft.IconButton(
+                ft.Icons.CHEVRON_LEFT,
+                tooltip="Previous",
+                disabled=(cp == 1),
+                on_click=lambda e: go_to_page(cp - 1),
+            )
+        )
+        # ─ Page number buttons (show at most 7 pages)
+        start_p = max(1, cp - 3)
+        end_p = min(tp, start_p + 6)
+        if start_p > 1:
+            pager_row.controls.append(_page_btn(1, cp))
+            if start_p > 2:
+                pager_row.controls.append(ft.Text("…", size=16, color=Colors.TEXT_MUTED))
+        for p in range(start_p, end_p + 1):
+            pager_row.controls.append(_page_btn(p, cp))
+        if end_p < tp:
+            if end_p < tp - 1:
+                pager_row.controls.append(ft.Text("…", size=16, color=Colors.TEXT_MUTED))
+            pager_row.controls.append(_page_btn(tp, cp))
+        # ─ Next button
+        pager_row.controls.append(
+            ft.IconButton(
+                ft.Icons.CHEVRON_RIGHT,
+                tooltip="Next",
+                disabled=(cp == tp),
+                on_click=lambda e: go_to_page(cp + 1),
+            )
+        )
 
     # Edit Dialog Fields:
     dlg_id      = ft.TextField(label="Robot ID", read_only=True)
@@ -164,7 +267,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
             if resp.status_code == 200:
                 show_snack(page, f"✓ Robot {dlg_id.value} updated successfully!", kind="success")
                 edit_dialog.open = False
-                load_robots(search_field.value)
+                load_robots()
             else:
                 show_snack(page, f"Update failed: {resp.text}", kind="error")
         except Exception as ex:
@@ -235,8 +338,13 @@ def add_robot_view(page: ft.Page) -> ft.Control:
 
     # API Operations:
 
-    def load_robots(search_text: str = ""):
-        print(f">>> Flet: Requesting GET /robots (search='{search_text}')")
+    def load_robots():
+        search_text = search_field.value or ""
+        offset = (current_page[0] - 1) * PAGE_SIZE
+        sort_by = sort_dropdown.value or "id"
+        order = order_dropdown.value or "asc"
+        
+        print(f">>> Flet: Requesting GET /robots (offset={offset}, limit={PAGE_SIZE}, search='{search_text}', sort_by='{sort_by}', order='{order}')")
         refresh_btn.disabled = True
         refresh_btn.content.controls[0].visible = True # Show ProgressRing
         status_text.value = "Fetching data..."
@@ -248,11 +356,32 @@ def add_robot_view(page: ft.Page) -> ft.Control:
         
         for attempt in range(max_retries):
             try:
-                params = {"search": search_text} if search_text else {}
+                params = {
+                    "limit": PAGE_SIZE,
+                    "offset": offset,
+                    "search": search_text,
+                    "sort_by": sort_by,
+                    "order": order
+                }
                 resp = requests.get(f"{API_URL}/robots", params=params, timeout=5)
                 resp.raise_for_status()
-                robots = resp.json()
-                print(f"--- Flet: Received {len(robots)} robots")
+                data = resp.json()
+                
+                total = data["total"]
+                robots = data["items"]
+                print(f"--- Flet: Received {len(robots)} of {total} robots")
+                
+                import math
+                total_pages[0] = max(1, math.ceil(total / PAGE_SIZE))
+                
+                # clamp current page
+                if current_page[0] > total_pages[0]:
+                    current_page[0] = total_pages[0]
+                
+                # counter label
+                start = offset + 1 if total > 0 else 0
+                end = min(offset + PAGE_SIZE, total)
+                counter_text.value = f"Showing {start}–{end} of {total} records"
                 
                 # Role-based restriction:
                 user_role = (page.data.get("user") or {}).get("role", "user")
@@ -282,13 +411,19 @@ def add_robot_view(page: ft.Page) -> ft.Control:
                         ft.DataRow(cells=[
                             ft.DataCell(ft.Text(rid, weight=ft.FontWeight.BOLD, color=Colors.PRIMARY)),
                             ft.DataCell(ft.Text(r["model"])),
+                            ft.DataCell(ft.Text(r["serial"])),
                             ft.DataCell(ft.Text(r["status"])),
+                            ft.DataCell(ft.Text(r["zone"])),
                             ft.DataCell(ft.Text(batt_pct)),
+                            ft.DataCell(ft.Text(r["last_maintenance"])),
+                            ft.DataCell(ft.Text(f"{r['temperature']}°C")),
+                            ft.DataCell(ft.Text(r["signal"])),
                             ft.DataCell(action_row),
                         ])
                     )
-                status_text.value = f"Success: {len(robots)} robot(s) loaded"
+                status_text.value = f"Success: {total} robot(s) total"
                 status_text.color = Colors.SUCCESS
+                rebuild_pager()
                 break # Exit retry loop on success
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
                 if attempt < max_retries - 1:
@@ -317,7 +452,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
                 resp = requests.delete(f"{API_URL}/robots/{robot_id}", timeout=5)
                 if resp.status_code == 200:
                     show_snack(page, f"Robot {robot_id} deleted.", kind="success")
-                    load_robots(search_field.value)
+                    load_robots()
                 else:
                     show_snack(page, f"Delete failed: {resp.text}", kind="error")
             except Exception as e:
@@ -398,7 +533,7 @@ def add_robot_view(page: ft.Page) -> ft.Control:
                 show_snack(page, f"✓ Robot {payload['id']} {action} successfully!", kind="success")
                 clear_form()
                 switch_to_tab(0)
-                load_robots(search_field.value)
+                load_robots()
             else:
                 show_snack(page, f"Error: {resp.json().get('detail', resp.text)}", kind="error")
         except Exception as e:
@@ -419,12 +554,14 @@ def add_robot_view(page: ft.Page) -> ft.Control:
         visible=True, expand=True, spacing=16,
         controls=[
             ft.Row([_section_header("Robot Fleet", "Manage warehouse robots via API"), refresh_btn], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            ft.Row([search_field], alignment=ft.MainAxisAlignment.START),
-            status_text,
+            ft.Row([search_field, sort_dropdown, order_dropdown], wrap=True, alignment=ft.MainAxisAlignment.START, spacing=10),
+            ft.Row([counter_text, status_text], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.Container(
                 bgcolor=Colors.SURFACE, border_radius=12, border=ft.Border.all(1, Colors.BORDER),
                 content=ft.Column([ft.Row([table], scroll=ft.ScrollMode.AUTO)], scroll=ft.ScrollMode.AUTO),
-            )
+            ),
+            ft.Container(height=10),
+            pager_row,
         ]
     )
 

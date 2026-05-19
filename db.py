@@ -145,24 +145,57 @@ def _seed() -> None:
                     ("admin@fleetops.logistics", "fleetops", "manager", "Fleet Manager"))
 
         cur.execute("DELETE FROM robots")
+        
+        # 6 Default Robots
+        default_robots = [
+            ("RX-701", "Titan-X Cargo Lifter", "TX-7001-AA", "Working",
+             "Loading A-1", 0.84, "2d ago", 32.0, "Excellent"),
+            ("RX-705", "Titan-X Cargo Lifter", "TX-7005-AB", "Ready",
+             "Staging-B",   0.96, "5d ago", 30.0, "Excellent"),
+            ("RX-712", "SwiftBot",             "SB-7012-AC", "Idle",
+             "Charging-03", 0.12, "12h ago", 28.0, "Good"),
+            ("RX-802", "SwiftBot",             "SB-8002-AD", "Working",
+             "Picking-C4", 0.45, "3d ago", 36.0, "Excellent"),
+            ("RX-699", "Titan-X Cargo Lifter", "TX-6999-AE", "Maintenance",
+             "Repair-Tech", 0.0, "Active", 0.0, "Offline"),
+            ("RBT-904", "Titan-X Cargo Lifter", "TX-8829-BK", "Active",
+             "B-Sector 4", 0.84, "1d ago", 42.0, "Excellent"),
+        ]
+        
         cur.executemany(
             "INSERT INTO robots (id, model, serial, status, zone, battery, "
             "last_maintenance, temperature, signal) "
             "VALUES (?,?,?,?,?,?,?,?,?)",
-            [
-                ("RX-701", "Titan-X Cargo Lifter", "TX-7001-AA", "Working",
-                 "Loading A-1", 0.84, "2d ago", 32, "Excellent"),
-                ("RX-705", "Titan-X Cargo Lifter", "TX-7005-AB", "Ready",
-                 "Staging-B",   0.96, "5d ago", 30, "Excellent"),
-                ("RX-712", "SwiftBot",             "SB-7012-AC", "Idle",
-                 "Charging-03", 0.12, "12h ago", 28, "Good"),
-                ("RX-802", "SwiftBot",             "SB-8002-AD", "Working",
-                 "Picking-C4", 0.45, "3d ago", 36, "Excellent"),
-                ("RX-699", "Titan-X Cargo Lifter", "TX-6999-AE", "Maintenance",
-                 "Repair-Tech", 0.0, "Active", 0, "Offline"),
-                ("RBT-904", "Titan-X Cargo Lifter", "TX-8829-BK", "Active",
-                 "B-Sector 4", 0.84, "1d ago", 42, "Excellent"),
-            ],
+            default_robots,
+        )
+
+        # 94 Additional Robots for pagination testing
+        import random
+        import string
+        models = ["SwiftBot", "Titan-X Cargo Lifter", "Apex Picker", "Drone-HD"]
+        statuses = ["Working", "Ready", "Idle", "Maintenance", "Active"]
+        zones = ["Zone A (Cold)", "Zone B (Bulk)", "Zone C (Picking)", "Storage A-1", "Storage B-2"]
+        signals = ["Excellent", "Good", "Fair", "Poor", "Offline"]
+        
+        extra_robots = []
+        for i in range(1, 95):
+            rnd = ''.join(random.choices(string.ascii_uppercase, k=4))
+            rid = f"RBT-{i:03d}"
+            model = random.choice(models)
+            serial = f"{model[:2].upper()}-{i:03d}-{rnd}"
+            status = random.choice(statuses)
+            zone = random.choice(zones)
+            battery = round(random.uniform(0.1, 1.0), 2)
+            last_m = f"{random.randint(1, 15)}d ago"
+            temp = round(random.uniform(25.0, 45.0), 1)
+            sig = random.choice(signals)
+            extra_robots.append((rid, model, serial, status, zone, battery, last_m, temp, sig))
+            
+        cur.executemany(
+            "INSERT OR IGNORE INTO robots (id, model, serial, status, zone, battery, "
+            "last_maintenance, temperature, signal) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            extra_robots,
         )
 
         cur.execute("DELETE FROM tasks")

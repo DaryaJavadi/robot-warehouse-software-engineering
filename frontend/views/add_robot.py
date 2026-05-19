@@ -20,8 +20,6 @@ import flet as ft
 from theme import Colors
 from components.dialogs import show_snack, confirm
 
-API_URL = "http://127.0.0.1:8000"
-
 # Valid dropdown choices:
 STATUS_OPTIONS  = ["Working", "Ready", "Idle", "Maintenance", "Active"]
 SIGNAL_OPTIONS  = ["Excellent", "Good", "Fair", "Poor", "Offline"]
@@ -67,6 +65,7 @@ def _section_header(title: str, subtitle: str) -> ft.Control:
 
 def add_robot_view(page: ft.Page) -> ft.Control:
     """Robot Management View with Table and Form."""
+    API_URL = (page.data or {}).get("API_URL", "http://127.0.0.1:8000")
 
     # State:
     editing_id = [None]  # Using a list for mutable closure access

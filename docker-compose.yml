@@ -1,0 +1,36 @@
+version: "3.9"
+services:
+  # ── FastAPI backend ──────────────────────────────────────
+  backend:
+    build: ./backend # build from backend/Dockerfile
+    container_name: fleetops_api
+    env_file: .env # load all variables from .env
+    volumes:
+      - db_data:/data # persist SQLite3 database
+    ports:
+      - "8000:8000" # host:container
+    networks:
+      - app_net
+    restart: unless-stopped
+
+  # ── Flet frontend ────────────────────────────────────────
+  frontend:
+    build: ./frontend # build from frontend/Dockerfile
+    container_name: fleetops_ui
+    env_file: .env
+    ports:
+      - "8550:8550"
+    networks:
+      - app_net
+    depends_on:
+      - backend # wait for backend before starting
+    restart: unless-stopped
+
+# ── Named volume: SQLite3 data survives 'docker compose down' ──────
+volumes:
+  db_data:
+
+# ── Virtual network: containers talk to each other by service name ──
+networks:
+  app_net:
+    driver: bridge

@@ -1,6 +1,7 @@
 """FleetOps — Robot Warehouse Management dashboard built with Flet."""
 from __future__ import annotations
 
+import os
 import flet as ft
 
 import db
@@ -25,6 +26,13 @@ ROUTES = {
 }
 
 
+# In Docker: API_HOST=backend (the service name), API_PORT=8000
+# Locally: API_HOST=127.0.0.1, API_PORT=8000
+API_HOST = os.getenv("API_HOST", "127.0.0.1")
+API_PORT = os.getenv("API_PORT", "8000")
+API_URL = f"http://{API_HOST}:{API_PORT}"
+
+
 def main(page: ft.Page) -> None:
     db.init() # creates tables, checks schema, prepares DB.
 
@@ -46,7 +54,7 @@ def main(page: ft.Page) -> None:
     page.window.height = 880
 
     #  signed-in user info, auth session, refresh callback. Init as dict before use.
-    page.data = {"user": None} # currently no user is logged in.
+    page.data = {"user": None, "API_URL": API_URL} # currently no user is logged in.
 
     def render() -> None: # removing old UI before drawing new UI.
         page.controls.clear()
@@ -133,5 +141,13 @@ def start_api() -> None:
 
 
 if __name__ == "__main__":
-    start_api()
-    ft.app(target=main, assets_dir="assets")
+    # Only start API in the background if running locally (not in Docker container network)
+    if API_HOST == "127.0.0.1":
+        start_api()
+    
+    # Run in web mode inside Docker, fallback to default desktop window locally
+    if os.getenv("API_HOST"):
+        # Served at http://localhost:8550 inside the container
+        ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=8550, assets_dir="assets")
+    else:
+        ft.app(target=main, assets_dir="assets")

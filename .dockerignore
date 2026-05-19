@@ -1,0 +1,7 @@
+# .dockerignore
+__pycache__/
+*.pyc
+venv/
+.env
+.git/
+fleetops.db

@@ -9,6 +9,7 @@ Swagger UI: http://127.0.0.1:8000/docs
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -27,7 +28,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB_PATH = Path(__file__).parent / "fleetops.db"
+DB_PATH_ENV = os.getenv("DB_PATH")
+if DB_PATH_ENV:
+    DB_PATH = Path(DB_PATH_ENV)
+else:
+    DB_PATH = Path(__file__).parent / "fleetops.db"
 
 # Valid choices (mirrors the db.py schema):
 VALID_STATUSES = {"Working", "Ready", "Idle", "Maintenance", "Active"}

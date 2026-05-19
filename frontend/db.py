@@ -11,7 +11,11 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "fleetops.db"
+DB_PATH_ENV = os.getenv("DB_PATH")
+if DB_PATH_ENV:
+    DB_PATH = Path(DB_PATH_ENV)
+else:
+    DB_PATH = Path(__file__).parent / "fleetops.db"
 
 
 SCHEMA = """

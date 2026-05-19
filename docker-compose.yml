@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   # ── FastAPI backend ──────────────────────────────────────
   backend:
@@ -18,6 +17,8 @@ services:
     build: ./frontend # build from frontend/Dockerfile
     container_name: fleetops_ui
     env_file: .env
+    volumes:
+      - db_data:/data
     ports:
       - "8550:8550"
     networks:
